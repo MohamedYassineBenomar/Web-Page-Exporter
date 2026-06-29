@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Web Page Exporter</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="head">
+      <svg class="logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="9" y="9" width="11" height="11" rx="2"></rect>
+        <path d="M5 15V5a2 2 0 0 1 2-2h10"></path>
+      </svg>
+      <div>
+        <h1>Web Page Exporter</h1>
+        <p class="sub">Copy this page's HTML</p>
+      </div>
+    </header>
+
+    <div class="btns">
+      <button id="full" type="button" class="btn">
+        <span class="t">Full HTML</span>
+        <span class="d">Complete document (with doctype)</span>
+        <kbd>Alt+Shift+1</kbd>
+      </button>
+      <button id="body" type="button" class="btn">
+        <span class="t">Body only</span>
+        <span class="d">The &lt;body&gt; element</span>
+        <kbd>Alt+Shift+2</kbd>
+      </button>
+      <button id="main" type="button" class="btn">
+        <span class="t">Main content</span>
+        <span class="d">No header, footer, nav or sidebars</span>
+        <kbd>Alt+Shift+3</kbd>
+      </button>
+    </div>
+
+    <div id="status" class="status" role="status" aria-live="polite"></div>
+
+    <footer class="foot">
+      <label class="toggle">
+        <input type="checkbox" id="launcher-toggle" checked>
+        <span>Show floating buttons on pages</span>
+      </label>
+    </footer>
+  </div>
+
+  <script src="clipboard.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
