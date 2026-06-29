@@ -76,7 +76,8 @@
   var MODES = [
     { mode: "full", label: "Full HTML", desc: "complete document" },
     { mode: "body", label: "Body", desc: "the <body> element" },
-    { mode: "main", label: "Main content", desc: "no header / footer / nav" }
+    { mode: "main", label: "Main content", desc: "no header / footer / nav" },
+    { mode: "md", label: "Markdown", desc: "clean text for AI context" }
   ];
 
   /* ----------------------------- build UI ----------------------------- */
@@ -214,7 +215,7 @@
     // shadow (the launcher's host may be display:none when disabled/dismissed).
     return globalThis.__WPE_COPY(out.html, toastShadow).then(function (r) {
       if (r.ok) {
-        var note = (mode === "main" && out.confidence === "low")
+        var note = ((mode === "main" || mode === "md") && out.confidence === "low")
           ? " (whole page — no main content found)" : "";
         showToast("Copied " + fmtBytes(r.bytes) + note + ".", false);
       } else {

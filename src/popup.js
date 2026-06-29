@@ -54,12 +54,12 @@ async function doCopy(mode) {
     return;
   }
   if (!out || !out.ok || !out.html) {
-    setStatus(mode === "main" ? "No content found on this page." : "Nothing to copy here.", "err");
+    setStatus((mode === "main" || mode === "md") ? "No content found on this page." : "Nothing to copy here.", "err");
     return;
   }
   var r = await window.__WPE_COPY(out.html);
   if (r.ok) {
-    var note = (mode === "main" && out.confidence === "low")
+    var note = ((mode === "main" || mode === "md") && out.confidence === "low")
       ? " (whole page — no main content found)" : "";
     setStatus("Copied " + fmtBytes(r.bytes) + note + ".", "ok");
   } else {
@@ -70,6 +70,7 @@ async function doCopy(mode) {
 document.getElementById("full").addEventListener("click", function () { doCopy("full"); });
 document.getElementById("body").addEventListener("click", function () { doCopy("body"); });
 document.getElementById("main").addEventListener("click", function () { doCopy("main"); });
+document.getElementById("md").addEventListener("click", function () { doCopy("md"); });
 
 // Floating-launcher on/off preference, synced live to the active tab.
 (async function () {

@@ -277,15 +277,177 @@
     return { ok: true, html: html, confidence: pick.confidence };
   }
 
+  /* ----------------  Markdown conversion  ----------------
+   * Turns the cleaned main content into minimal, structure-preserving
+   * Markdown — headings, lists, links, images, code, quotes, tables — so an
+   * AI gets the page's meaning and context without the HTML noise. */
+  var INLINE_TAGS = {
+    a: 1, strong: 1, b: 1, em: 1, i: 1, code: 1, span: 1, img: 1, small: 1,
+    sup: 1, sub: 1, u: 1, mark: 1, abbr: 1, time: 1, cite: 1, q: 1, label: 1,
+    s: 1, del: 1, ins: 1, kbd: 1, var: 1, samp: 1, bdi: 1, bdo: 1, wbr: 1
+  };
+
+  function collapseWs(s) { return s.replace(/\s+/g, " "); }
+
+  function inlineMd(node) {
+    var out = "";
+    var kids = node.childNodes;
+    for (var i = 0; i < kids.length; i++) {
+      var c = kids[i];
+      if (c.nodeType === 3) { out += collapseWs(c.nodeValue); continue; }
+      if (c.nodeType !== 1) continue;
+      var tag = c.tagName.toLowerCase();
+      if (tag === "br") { out += "  \n"; continue; }
+      if (tag === "strong" || tag === "b") { var st = inlineMd(c).trim(); out += st ? "**" + st + "**" : ""; }
+      else if (tag === "em" || tag === "i") { var et = inlineMd(c).trim(); out += et ? "*" + et + "*" : ""; }
+      else if (tag === "s" || tag === "del") { var dt = inlineMd(c).trim(); out += dt ? "~~" + dt + "~~" : ""; }
+      else if (tag === "code") { out += "`" + collapseWs(c.textContent) + "`"; }
+      else if (tag === "a") {
+        var href = c.getAttribute("href") || "";
+        var t = inlineMd(c).trim() || href;
+        out += href ? "[" + t + "](" + href + ")" : t;
+      } else if (tag === "img") {
+        var alt = collapseWs(c.getAttribute("alt") || "").trim();
+        var src = c.getAttribute("src") || "";
+        if (src) out += "![" + alt + "](" + src + ")";
+      } else {
+        out += inlineMd(c);
+      }
+    }
+    return out;
+  }
+
+  function liContentMd(li) {
+    var buf = "", extras = [];
+    var kids = li.childNodes;
+    for (var i = 0; i < kids.length; i++) {
+      var c = kids[i];
+      if (c.nodeType === 3) { buf += collapseWs(c.nodeValue); continue; }
+      if (c.nodeType !== 1) continue;
+      var tag = c.tagName.toLowerCase();
+      if (tag === "ul" || tag === "ol") extras.push(listMd(c, tag === "ol"));
+      else if (tag === "p" || tag === "div") buf += (buf ? " " : "") + inlineMd(c);
+      else buf += inlineMd(c);
+    }
+    var first = collapseWs(buf).trim();
+    var sub = extras.join("\n");
+    return sub ? first + "\n" + sub : first;
+  }
+
+  function listMd(listEl, ordered) {
+    var items = [], n = 1;
+    for (var i = 0; i < listEl.children.length; i++) {
+      var li = listEl.children[i];
+      if (li.tagName.toLowerCase() !== "li") continue;
+      var content = liContentMd(li);
+      if (!content) continue;
+      var marker = ordered ? (n++ + ". ") : "- ";
+      var ls = content.split("\n");
+      var first = marker + (ls.shift() || "");
+      var rest = ls.map(function (l) { return l ? "  " + l : l; }).join("\n");
+      items.push(rest ? first + "\n" + rest : first);
+    }
+    return items.join("\n");
+  }
+
+  function tableMd(table) {
+    var rows = table.querySelectorAll("tr");
+    if (!rows.length) return "";
+    var grid = [];
+    for (var r = 0; r < rows.length; r++) {
+      var cells = rows[r].querySelectorAll("th, td");
+      var row = [];
+      for (var ci = 0; ci < cells.length; ci++) {
+        row.push(inlineMd(cells[ci]).replace(/\n/g, " ").replace(/\|/g, "\\|").trim());
+      }
+      if (row.length) grid.push(row);
+    }
+    if (!grid.length) return "";
+    var cols = 0;
+    grid.forEach(function (g) { if (g.length > cols) cols = g.length; });
+    function pad(a) { a = a.slice(); while (a.length < cols) a.push(""); return a; }
+    var lines = [];
+    lines.push("| " + pad(grid[0]).join(" | ") + " |");
+    lines.push("| " + pad(grid[0]).map(function () { return "---"; }).join(" | ") + " |");
+    for (var g = 1; g < grid.length; g++) lines.push("| " + pad(grid[g]).join(" | ") + " |");
+    return lines.join("\n");
+  }
+
+  function blockMd(node) {
+    var out = [], buf = "";
+    function flush() { var t = collapseWs(buf).trim(); if (t) out.push(t); buf = ""; }
+    var kids = node.childNodes;
+    for (var i = 0; i < kids.length; i++) {
+      var c = kids[i];
+      if (c.nodeType === 3) { buf += collapseWs(c.nodeValue); continue; }
+      if (c.nodeType !== 1) continue;
+      var tag = c.tagName.toLowerCase();
+      if (tag === "br") { buf += "  \n"; continue; }
+      if (INLINE_TAGS[tag]) { buf += inlineMd(c); continue; }
+      if (/^h[1-6]$/.test(tag)) { flush(); out.push(new Array(+tag[1] + 1).join("#") + " " + inlineMd(c).trim()); }
+      else if (tag === "p") { flush(); var p = inlineMd(c).trim(); if (p) out.push(p); }
+      else if (tag === "hr") { flush(); out.push("---"); }
+      else if (tag === "ul" || tag === "ol") { flush(); var l = listMd(c, tag === "ol"); if (l) out.push(l); }
+      else if (tag === "blockquote") {
+        flush();
+        var q = blockMd(c).trim();
+        if (q) out.push(q.split("\n").map(function (x) { return x ? "> " + x : ">"; }).join("\n"));
+      } else if (tag === "pre") {
+        flush();
+        out.push("```\n" + c.textContent.replace(/\n+$/, "") + "\n```");
+      } else if (tag === "table") { flush(); var tm = tableMd(c); if (tm) out.push(tm); }
+      else { var inner = blockMd(c).trim(); if (inner) { flush(); out.push(inner); } }
+    }
+    flush();
+    return out.join("\n\n");
+  }
+
+  function pageMeta() {
+    var title = (document.title || "").trim();
+    var desc = "";
+    var m = document.querySelector('meta[name="description"], meta[property="og:description"]');
+    if (m) desc = collapseWs(m.getAttribute("content") || "").trim();
+    var url = "";
+    try { url = (document.location && document.location.href) || document.baseURI || ""; } catch (e) { url = document.baseURI || ""; }
+    return { title: title, desc: desc, url: url };
+  }
+
+  function getMarkdown() {
+    var pick = pickMainElement();
+    var meta = pageMeta();
+    var parts = [];
+    if (meta.title) parts.push("# " + meta.title);
+    var ctx = [];
+    if (meta.url) ctx.push("**URL:** " + meta.url);
+    if (meta.desc) ctx.push("**Description:** " + meta.desc);
+    if (ctx.length) parts.push(ctx.join("  \n"));
+
+    var body = "";
+    if (pick.element) {
+      var clone = pick.element.cloneNode(true);
+      try { removeHiddenSynced(pick.element, clone); } catch (e) {}
+      stripJunk(clone);
+      absolutize(clone);
+      body = blockMd(clone).trim();
+    }
+    if (body) parts.push(body);
+
+    var out = parts.join("\n\n").replace(/\n{3,}/g, "\n\n").trim() + "\n";
+    if (!out.trim()) return { ok: false, html: "", confidence: "none" };
+    return { ok: true, html: out, confidence: pick.confidence };
+  }
+
   globalThis.__WPE_EXTRACTOR = {
     get: function (mode) {
       if (mode === "full") return getFullHTML();
       if (mode === "body") return getBodyHTML();
       if (mode === "main") return getMainHTML();
+      if (mode === "md") return getMarkdown();
       return { ok: false, html: "", confidence: "none" };
     },
     getFullHTML: getFullHTML,
     getBodyHTML: getBodyHTML,
-    getMainHTML: getMainHTML
+    getMainHTML: getMainHTML,
+    getMarkdown: getMarkdown
   };
 })();

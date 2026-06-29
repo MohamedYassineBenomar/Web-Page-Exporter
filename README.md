@@ -14,6 +14,7 @@ context." You can copy the whole document, just the `<body>`, or only the
 | **Full HTML** | The complete live document, including the `<!DOCTYPE>` and `<html>` — a faithful snapshot you can save as a standalone `.html` file. | `Alt+Shift+1` |
 | **Body only** | The `<body>` element (with its tag and attributes). | `Alt+Shift+2` |
 | **Main content** | The article/content container with header, footer, nav, asides, ads, scripts and styles removed. Best-effort, tuned for most blogs/news/docs/CMS sites. | `Alt+Shift+3` |
+| **Markdown** | The main content converted to clean, minimal Markdown — headings, lists, links, images, code, blockquotes and tables — with a small context header (page **title**, **URL** and **description**). This is the most compact, readable way to hand a page's meaning to an AI. | _bind at_ `chrome://extensions/shortcuts` |
 
 There are two ways to trigger a copy:
 

@@ -5,7 +5,7 @@
  */
 "use strict";
 
-var MODE_BY_COMMAND = { "copy-full": "full", "copy-body": "body", "copy-main": "main" };
+var MODE_BY_COMMAND = { "copy-full": "full", "copy-body": "body", "copy-main": "main", "copy-md": "md" };
 
 var PROTECTED = /^(chrome|edge|brave|opera|vivaldi|about|chrome-extension|moz-extension|view-source|devtools|data):|^https?:\/\/(chrome\.google\.com\/webstore|chromewebstore\.google\.com)/i;
 

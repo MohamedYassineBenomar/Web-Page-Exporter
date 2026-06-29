@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Web Page Exporter",
   "version": "1.0.0",
-  "description": "Copy the current page's HTML to your clipboard in three modes: Full document, Body only, or cleaned Main content. Works via floating hover buttons or the toolbar popup.",
+  "description": "Copy the current page to your clipboard in four modes: Full HTML, Body only, cleaned Main content, or Markdown (great for AI context). Works via floating hover buttons or the toolbar popup.",
   "minimum_chrome_version": "109",
   "permissions": ["activeTab", "scripting", "clipboardWrite", "storage"],
   "action": {
@@ -37,6 +37,9 @@
     "copy-main": {
       "suggested_key": { "default": "Alt+Shift+3" },
       "description": "Copy Main content"
+    },
+    "copy-md": {
+      "description": "Copy page as Markdown"
     },
     "toggle-launcher": {
       "suggested_key": { "default": "Alt+Shift+0" },
