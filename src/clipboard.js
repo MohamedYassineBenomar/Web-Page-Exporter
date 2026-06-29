@@ -17,6 +17,10 @@
 
   function fallbackCopy(text, container) {
     try {
+      // Preserve the user's current page selection so the copy is non-destructive.
+      var sel = document.getSelection();
+      var saved = (sel && sel.rangeCount) ? sel.getRangeAt(0).cloneRange() : null;
+
       var ta = document.createElement("textarea");
       ta.value = text;
       ta.setAttribute("readonly", "");
@@ -36,6 +40,7 @@
       try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
       ta.remove();
       try { if (prev && prev.focus) prev.focus(); } catch (e) {}
+      if (saved && sel) { try { sel.removeAllRanges(); sel.addRange(saved); } catch (e) {} }
       return ok;
     } catch (e) {
       return false;

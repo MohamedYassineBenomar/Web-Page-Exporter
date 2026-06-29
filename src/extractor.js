@@ -42,6 +42,10 @@
   var MIN_TEXT = 200;          // a candidate must have this much text to count
   var FALLBACK_MIN_TEXT = 250; // density-fallback winner must clear this
   var FALLBACK_MIN_SCORE = 20; // ...and this score
+
+  // URL schemes that must never survive into cleaned output / be promoted.
+  var SCRIPT_URL_RE = /^\s*(javascript|vbscript):/i;
+  var SKIP_ABS_RE = /^(#|data:|mailto:|tel:|javascript:|vbscript:|blob:|about:)/i;
   /* ===================  end CONFIG  =================== */
 
   function txtLen(el) { return el && el.textContent ? el.textContent.trim().length : 0; }
@@ -59,7 +63,14 @@
   function hasLayoutBox(el) {
     if (el === document.body) return true;
     if (el.getClientRects && el.getClientRects().length > 0) return true;
-    return el.offsetParent !== null;
+    if (el.offsetParent !== null) return true;
+    // display:contents elements generate no box of their own but are visible —
+    // common for unstyled semantic grouping wrappers (e.g. a <main>/.content div).
+    try {
+      var cs = getComputedStyle(el);
+      if (cs && cs.display === "contents") return txtLen(el) > 0;
+    } catch (e) {}
+    return false;
   }
 
   function isSubstantial(el) {
@@ -160,15 +171,20 @@
   // Remove, from the CLONE, any element that is display:none / visibility:hidden
   // in the LIVE tree. Both trees share identical structure (clone made just now),
   // so we walk them in lockstep. getComputedStyle is read off the live node only.
-  function removeHiddenSynced(liveEl, cloneEl) {
-    var live = liveEl.children, clone = cloneEl.children;
-    for (var i = live.length - 1; i >= 0; i--) {
-      var lk = live[i], ck = clone[i];
-      if (!ck) continue;
-      var cs;
-      try { cs = getComputedStyle(lk); } catch (e) { cs = null; }
-      if (cs && (cs.display === "none" || cs.visibility === "hidden")) { ck.remove(); continue; }
-      removeHiddenSynced(lk, ck);
+  // Iterative (explicit stack) so pathologically deep DOMs can't overflow it.
+  function removeHiddenSynced(liveRoot, cloneRoot) {
+    var stack = [[liveRoot, cloneRoot]];
+    while (stack.length) {
+      var pair = stack.pop();
+      var live = pair[0].children, clone = pair[1].children;
+      for (var i = live.length - 1; i >= 0; i--) {
+        var lk = live[i], ck = clone[i];
+        if (!ck) continue;
+        var cs;
+        try { cs = getComputedStyle(lk); } catch (e) { cs = null; }
+        if (cs && (cs.display === "none" || cs.visibility === "hidden")) { ck.remove(); continue; }
+        stack.push([lk, ck]);
+      }
     }
   }
 
@@ -193,33 +209,43 @@
       var e = rest[k];
       var style = e.getAttribute("style");
       if (style && /display\s*:\s*none|visibility\s*:\s*hidden/i.test(style)) { e.remove(); continue; }
+      // Strip inline event handlers and ANY attribute carrying a script URL —
+      // covers href, src, xlink:href, formaction, action, etc.
       var attrs = e.attributes;
       for (var a = attrs.length - 1; a >= 0; a--) {
-        if (/^on/i.test(attrs[a].name)) e.removeAttribute(attrs[a].name);
+        var an = attrs[a].name, av = attrs[a].value;
+        if (/^on/i.test(an) || (av && SCRIPT_URL_RE.test(av))) e.removeAttribute(an);
       }
-      var href = e.getAttribute("href");
-      if (href && /^\s*javascript:/i.test(href)) e.removeAttribute("href");
-      var src = e.getAttribute("src");
-      if (src && /^\s*javascript:/i.test(src)) e.removeAttribute("src");
     }
   }
 
   // Rewrite relative URLs to absolute so copied content keeps working.
   function absolutize(root) {
     var base = document.baseURI;
-    var nodes = root.querySelectorAll("[src], [href], [data-src]");
+    function abs(v) { try { return new URL(v, base).href; } catch (e) { return null; } }
+    function absSrcset(val) {
+      return val.split(",").map(function (part) {
+        var s = part.trim();
+        if (!s) return "";
+        var sp = s.split(/\s+/);
+        if (sp[0] && !SKIP_ABS_RE.test(sp[0])) { var a = abs(sp[0]); if (a) sp[0] = a; }
+        return sp.join(" ");
+      }).filter(Boolean).join(", ");
+    }
+    var nodes = root.querySelectorAll("[src], [href], [data-src], [srcset]");
     for (var i = 0; i < nodes.length; i++) {
       var el = nodes[i];
       var ds = el.getAttribute("data-src");
-      if (ds && !el.getAttribute("src")) {
-        try { el.setAttribute("src", new URL(ds, base).href); } catch (e) {}
+      // promote lazy-load data-src -> src, but never a script: URL
+      if (ds && !el.getAttribute("src") && !SKIP_ABS_RE.test(ds)) {
+        var a1 = abs(ds); if (a1) el.setAttribute("src", a1);
       }
       ["src", "href"].forEach(function (attr) {
         var v = el.getAttribute(attr);
-        if (v && !/^(#|data:|mailto:|tel:|javascript:|blob:)/i.test(v)) {
-          try { el.setAttribute(attr, new URL(v, base).href); } catch (e) {}
-        }
+        if (v && !SKIP_ABS_RE.test(v)) { var a2 = abs(v); if (a2) el.setAttribute(attr, a2); }
       });
+      var ss = el.getAttribute("srcset");
+      if (ss) el.setAttribute("srcset", absSrcset(ss));
     }
   }
 

@@ -15,7 +15,8 @@
   var dismissed = false;  // per-page-load dismiss via the "×"
   var corner = "bottom-right";
 
-  var host, shadow, root, panel, toastEl, toastTimer, closeTimer, observer;
+  var host, shadow, root, panel, launcher;
+  var toastHost, toastShadow, toastEl, toastTimer, closeTimer, observer;
 
   /* ----------------------------- styles ----------------------------- */
   var CSS = "" +
@@ -92,7 +93,7 @@
     root = document.createElement("div");
     root.className = "root " + corner;
 
-    var launcher = document.createElement("button");
+    launcher = document.createElement("button");
     launcher.type = "button";
     launcher.className = "launcher";
     launcher.setAttribute("aria-label", "Web Page Exporter — copy page HTML");
@@ -139,11 +140,20 @@
     root.appendChild(launcher);
     shadow.appendChild(root);
 
+    // The toast lives in its OWN host so it stays visible even when the launcher
+    // is disabled/dismissed — e.g. to give feedback for keyboard-shortcut copies.
+    toastHost = document.createElement("div");
+    toastHost.id = "wpe-toast-host";
+    toastHost.style.cssText = "all:initial;";
+    toastShadow = toastHost.attachShadow({ mode: "open" });
+    var tstyle = document.createElement("style");
+    tstyle.textContent = CSS;
+    toastShadow.appendChild(tstyle);
     toastEl = document.createElement("div");
     toastEl.className = "toast " + corner;
     toastEl.setAttribute("role", "status");
     toastEl.setAttribute("aria-live", "polite");
-    shadow.appendChild(toastEl);
+    toastShadow.appendChild(toastEl);
 
     // Hover reveal: mouseenter/leave on root treat descendants as one region,
     // so moving from launcher to the (absolutely-offset) panel won't close it.
@@ -154,6 +164,15 @@
     root.addEventListener("keydown", function (e) {
       if (e.key === "Escape") { closeMenu(); launcher.blur(); }
     });
+    // When opened via hover, focus is still on the page, so the shadow-level
+    // handler never sees the keydown — listen on document too (passive: it only
+    // acts when our menu is open, never preventDefaults or stops propagation).
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && root.classList.contains("open")) {
+        closeMenu();
+        try { launcher.blur(); } catch (_) {}
+      }
+    }, true);
   }
 
   function openMenu() { clearTimeout(closeTimer); root.classList.add("open"); }
@@ -191,7 +210,9 @@
       showToast(mode === "main" ? "No content found to copy." : "Nothing to copy here.", true);
       return Promise.resolve({ ok: false });
     }
-    return globalThis.__WPE_COPY(out.html, shadow).then(function (r) {
+    // Mount the execCommand fallback's textarea in the always-visible toast
+    // shadow (the launcher's host may be display:none when disabled/dismissed).
+    return globalThis.__WPE_COPY(out.html, toastShadow).then(function (r) {
       if (r.ok) {
         var note = (mode === "main" && out.confidence === "low")
           ? " (whole page — no main content found)" : "";
@@ -206,8 +227,9 @@
   /* ------------------------- mount / visibility ------------------------- */
   function ensureMounted() {
     if (!host) buildUI();
-    if (!host.isConnected && document.documentElement) {
-      document.documentElement.appendChild(host);
+    if (document.documentElement) {
+      if (!host.isConnected) document.documentElement.appendChild(host);
+      if (toastHost && !toastHost.isConnected) document.documentElement.appendChild(toastHost);
     }
   }
 
@@ -225,7 +247,7 @@
       pending = true;
       setTimeout(function () {
         pending = false;
-        if (host && !host.isConnected && enabled && !dismissed) ensureMounted();
+        if ((host && !host.isConnected) || (toastHost && !toastHost.isConnected)) ensureMounted();
       }, 300);
     });
     observer.observe(document.documentElement, { childList: true });
