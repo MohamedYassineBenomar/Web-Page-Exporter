@@ -1,0 +1,51 @@
+{
+  "manifest_version": 3,
+  "name": "Web Page Exporter",
+  "version": "1.0.0",
+  "description": "Copy the current page's HTML to your clipboard in three modes: Full document, Body only, or cleaned Main content. Works via floating hover buttons or the toolbar popup.",
+  "minimum_chrome_version": "109",
+  "permissions": ["activeTab", "scripting", "clipboardWrite", "storage"],
+  "action": {
+    "default_title": "Web Page Exporter",
+    "default_popup": "src/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/extractor.js", "src/clipboard.js", "src/content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "commands": {
+    "copy-full": {
+      "suggested_key": { "default": "Alt+Shift+1" },
+      "description": "Copy Full HTML"
+    },
+    "copy-body": {
+      "suggested_key": { "default": "Alt+Shift+2" },
+      "description": "Copy Body only"
+    },
+    "copy-main": {
+      "suggested_key": { "default": "Alt+Shift+3" },
+      "description": "Copy Main content"
+    },
+    "toggle-launcher": {
+      "suggested_key": { "default": "Alt+Shift+0" },
+      "description": "Show/hide the floating launcher"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
