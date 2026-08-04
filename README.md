@@ -1,7 +1,7 @@
 # Web Page Exporter
 
 A zero-dependency Chrome (Manifest V3) extension that copies the current page's
-HTML to your clipboard in one click — no more opening DevTools and hand-copying.
+HTML to your clipboard in one click — no more opening DevTools and hand-copying. 
 
 Built for the workflow of "grab the page so I can paste it into an AI for
 context." You can copy the whole document, just the `<body>`, or only the
