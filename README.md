@@ -8,7 +8,7 @@ context." You can copy the whole document, just the `<body>`, or only the
 **main content** with the header, footer, navigation and sidebars stripped out.
 
 ## Three copy modes
-
+ 
 | Mode | What you get | Shortcut |
 | --- | --- | --- |
 | **Full HTML** | The complete live document, including the `<!DOCTYPE>` and `<html>` — a faithful snapshot you can save as a standalone `.html` file. | `Alt+Shift+1` |
