@@ -7,7 +7,7 @@ Built for the workflow of "grab the page so I can paste it into an AI for
 context." You can copy the whole document, just the `<body>`, or only the
 **main content** with the header, footer, navigation and sidebars stripped out.
 
-## Three copy modes
+## Three copy modes 
  
 | Mode | What you get | Shortcut |
 | --- | --- | --- |
